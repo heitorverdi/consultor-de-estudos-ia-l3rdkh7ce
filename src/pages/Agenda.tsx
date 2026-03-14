@@ -1,6 +1,7 @@
 import { PageTransition } from '@/components/PageTransition'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { MOCK_AGENDA_EVENTS } from '@/lib/mockData'
 import { Calendar as CalendarIcon, Sparkles, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
