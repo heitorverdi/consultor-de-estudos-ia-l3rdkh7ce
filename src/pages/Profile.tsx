@@ -4,13 +4,18 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import useAppStore from '@/stores/useAppStore'
+import useAppStore, { CORE_SUBJECTS } from '@/stores/useAppStore'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { MOCK_SUBJECTS } from '@/lib/mockData'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Checkbox } from '@/components/ui/checkbox'
 
 export default function Profile() {
   const { user, updateUser, theme, toggleTheme } = useAppStore()
+
+  const toggleDifficulty = (sub: any) => {
+    const isDif = user.difficultSubjects.includes(sub)
+    if (isDif) updateUser({ difficultSubjects: user.difficultSubjects.filter((s) => s !== sub) })
+    else updateUser({ difficultSubjects: [...user.difficultSubjects, sub] })
+  }
 
   return (
     <PageTransition className="max-w-3xl mx-auto space-y-6">
@@ -28,14 +33,20 @@ export default function Profile() {
             </Avatar>
             <Button variant="outline">Mudar Foto</Button>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Nome Completo</Label>
               <Input value={user.name} onChange={(e) => updateUser({ name: e.target.value })} />
             </div>
             <div className="space-y-2">
-              <Label>Objetivo Principal</Label>
+              <Label>Ano Escolar</Label>
+              <Input
+                value={user.schoolYear}
+                onChange={(e) => updateUser({ schoolYear: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Objetivo Principal (Vestibular)</Label>
               <Input value={user.goal} onChange={(e) => updateUser({ goal: e.target.value })} />
             </div>
           </div>
@@ -44,59 +55,61 @@ export default function Profile() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Matriz de Dificuldades</CardTitle>
+          <CardTitle>Matérias de Maior Dificuldade</CardTitle>
           <CardDescription>O Consultor IA usa isso para focar nas suas fraquezas.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {MOCK_SUBJECTS.map((sub) => (
-            <div
-              key={sub.id}
-              className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border bg-secondary/20 gap-3"
-            >
-              <span className="font-medium">{sub.name}</span>
-              <RadioGroup defaultValue={sub.difficulty} className="flex gap-4">
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="low" id={`${sub.id}-low`} />
-                  <Label htmlFor={`${sub.id}-low`} className="text-xs">
-                    Fácil
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="medium" id={`${sub.id}-med`} />
-                  <Label htmlFor={`${sub.id}-med`} className="text-xs">
-                    Média
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="high" id={`${sub.id}-high`} />
-                  <Label htmlFor={`${sub.id}-high`} className="text-xs">
-                    Difícil
-                  </Label>
-                </div>
-              </RadioGroup>
-            </div>
-          ))}
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {CORE_SUBJECTS.map((sub) => (
+              <div
+                key={sub}
+                className="flex items-center space-x-2 p-2 border rounded-lg hover:border-primary transition-colors"
+              >
+                <Checkbox
+                  id={`dif-${sub}`}
+                  checked={user.difficultSubjects.includes(sub)}
+                  onCheckedChange={() => toggleDifficulty(sub)}
+                />
+                <Label htmlFor={`dif-${sub}`} className="text-sm font-medium cursor-pointer">
+                  {sub}
+                </Label>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Preferências</CardTitle>
+          <CardTitle>Preferências e Rotina</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-3 border rounded-lg">
-            <div className="space-y-0.5">
-              <Label>Modo Escuro</Label>
-              <p className="text-xs text-muted-foreground">Ajuste o visual da plataforma.</p>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Horas de Estudo Semanais</Label>
+              <Input
+                type="number"
+                value={user.weeklyStudyHours}
+                onChange={(e) => updateUser({ weeklyStudyHours: Number(e.target.value) })}
+              />
             </div>
-            <Switch checked={theme === 'dark'} onCheckedChange={toggleTheme} />
+            <div className="space-y-2">
+              <Label>Média Diária (horas)</Label>
+              <Input
+                type="number"
+                value={user.dailyStudyTime}
+                onChange={(e) => updateUser({ dailyStudyTime: Number(e.target.value) })}
+              />
+            </div>
           </div>
-          <div className="flex items-center justify-between p-3 border rounded-lg">
-            <div className="space-y-0.5">
-              <Label>Notificações de Estudo</Label>
-              <p className="text-xs text-muted-foreground">Receba alertas antes das sessões.</p>
+          <div className="space-y-4 pt-4 border-t border-border/50">
+            <div className="flex items-center justify-between p-3 border rounded-lg">
+              <div className="space-y-0.5">
+                <Label>Modo Escuro</Label>
+                <p className="text-xs text-muted-foreground">Ajuste o visual da plataforma.</p>
+              </div>
+              <Switch checked={theme === 'dark'} onCheckedChange={toggleTheme} />
             </div>
-            <Switch defaultChecked />
           </div>
         </CardContent>
       </Card>
