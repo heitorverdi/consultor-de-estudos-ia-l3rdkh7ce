@@ -88,7 +88,7 @@ const defaultUser: UserProfile = {
   studyPreference: '',
   streak: 0,
   onboarded: false,
-  avatar: 'https://img.usecurling.com/ppl/thumbnail?gender=female&seed=4',
+  avatar: '',
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined)

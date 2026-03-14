@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Send, Bot } from 'lucide-react'
+import { Send, Bot, User as UserIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { cn } from '@/lib/utils'
+import { cn, getInitials } from '@/lib/utils'
+import useAppStore from '@/stores/useAppStore'
 
 interface Message {
   id: string
@@ -29,6 +30,7 @@ export function ChatInterface({
   suggestions,
   headerSlot,
 }: ChatInterfaceProps) {
+  const { user } = useAppStore()
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -38,6 +40,8 @@ export function ChatInterface({
   ])
   const [input, setInput] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  const initials = getInitials(user.name)
 
   const handleSend = (text: string) => {
     if (!text.trim()) return
@@ -103,7 +107,12 @@ export function ChatInterface({
                     <Bot className="w-4 h-4 text-white" />
                   </AvatarFallback>
                 ) : (
-                  <AvatarImage src="https://img.usecurling.com/ppl/thumbnail?gender=female&seed=4" />
+                  <>
+                    <AvatarImage src={user.avatar} />
+                    <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
+                      {initials ? initials : <UserIcon className="w-4 h-4" />}
+                    </AvatarFallback>
+                  </>
                 )}
               </Avatar>
               <div

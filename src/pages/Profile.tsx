@@ -7,9 +7,12 @@ import { Switch } from '@/components/ui/switch'
 import useAppStore, { CORE_SUBJECTS } from '@/stores/useAppStore'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Checkbox } from '@/components/ui/checkbox'
+import { User as UserIcon } from 'lucide-react'
+import { getInitials } from '@/lib/utils'
 
 export default function Profile() {
   const { user, updateUser, theme, toggleTheme } = useAppStore()
+  const initials = getInitials(user.name)
 
   const toggleDifficulty = (sub: any) => {
     const isDif = user.difficultSubjects.includes(sub)
@@ -29,7 +32,9 @@ export default function Profile() {
           <div className="flex items-center gap-4">
             <Avatar className="w-20 h-20">
               <AvatarImage src={user.avatar} />
-              <AvatarFallback>ST</AvatarFallback>
+              <AvatarFallback className="bg-primary/10 text-primary text-2xl font-medium">
+                {initials ? initials : <UserIcon className="w-8 h-8" />}
+              </AvatarFallback>
             </Avatar>
             <Button variant="outline">Mudar Foto</Button>
           </div>

@@ -1,12 +1,14 @@
-import { Bell, Flame } from 'lucide-react'
+import { Bell, Flame, User as UserIcon } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import useAppStore from '@/stores/useAppStore'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { getInitials } from '@/lib/utils'
 
 export function Header() {
   const { user } = useAppStore()
   const today = format(new Date(), "dd 'de' MMMM", { locale: ptBR })
+  const initials = getInitials(user.name)
 
   return (
     <header className="h-16 glass sticky top-0 z-40 flex items-center justify-between px-4 md:px-8">
@@ -14,7 +16,9 @@ export function Header() {
         <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
           {today}
         </span>
-        <h2 className="text-sm font-bold md:text-base">Olá, {user.name} 👋</h2>
+        <h2 className="text-sm font-bold md:text-base">
+          Olá{user.name ? `, ${user.name}` : ''} 👋
+        </h2>
       </div>
 
       <div className="flex items-center gap-3 md:gap-4">
@@ -30,7 +34,9 @@ export function Header() {
 
         <Avatar className="w-9 h-9 border-2 border-primary/20 cursor-pointer hover:border-primary transition-colors">
           <AvatarImage src={user.avatar} />
-          <AvatarFallback>ST</AvatarFallback>
+          <AvatarFallback className="bg-primary/10 text-primary font-medium text-xs">
+            {initials ? initials : <UserIcon className="w-4 h-4" />}
+          </AvatarFallback>
         </Avatar>
       </div>
     </header>
