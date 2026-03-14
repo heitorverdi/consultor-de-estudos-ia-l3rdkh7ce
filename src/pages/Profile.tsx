@@ -1,58 +1,98 @@
+import { useState, useEffect } from 'react'
 import { PageTransition } from '@/components/PageTransition'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { useAuth } from '@/hooks/use-auth'
 import useAppStore, { CORE_SUBJECTS } from '@/stores/useAppStore'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Checkbox } from '@/components/ui/checkbox'
-import { User as UserIcon } from 'lucide-react'
+import { User as UserIcon, Save, Loader2 } from 'lucide-react'
 import { getInitials } from '@/lib/utils'
+import { toast } from 'sonner'
 
 export default function Profile() {
-  const { user, updateUser, theme, toggleTheme } = useAppStore()
-  const initials = getInitials(user.name)
+  const { user: localUser, updateUser, theme, toggleTheme } = useAppStore()
+  const { profile, updateProfile, loading } = useAuth()
+
+  const [fullName, setFullName] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (profile) {
+      setFullName(profile.full_name || '')
+      setAvatarUrl(profile.avatar_url || '')
+    }
+  }, [profile])
+
+  const handleSaveDb = async () => {
+    setSaving(true)
+    const { error } = await updateProfile({ full_name: fullName, avatar_url: avatarUrl })
+    if (error) toast.error('Erro ao salvar perfil no banco de dados.')
+    else toast.success('Perfil salvo com sucesso!')
+    setSaving(false)
+  }
 
   const toggleDifficulty = (sub: any) => {
-    const isDif = user.difficultSubjects.includes(sub)
-    if (isDif) updateUser({ difficultSubjects: user.difficultSubjects.filter((s) => s !== sub) })
-    else updateUser({ difficultSubjects: [...user.difficultSubjects, sub] })
+    const isDif = localUser.difficultSubjects.includes(sub)
+    if (isDif)
+      updateUser({ difficultSubjects: localUser.difficultSubjects.filter((s) => s !== sub) })
+    else updateUser({ difficultSubjects: [...localUser.difficultSubjects, sub] })
   }
+
+  if (loading) return null
+  const initials = getInitials(fullName || localUser.name)
 
   return (
     <PageTransition className="max-w-3xl mx-auto space-y-6">
-      <h1 className="text-2xl font-display font-bold">Configurações e Perfil</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-display font-bold">Configurações e Perfil</h1>
+        <Button onClick={handleSaveDb} disabled={saving} className="bg-primary hover:bg-primary/90">
+          {saving ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <Save className="w-4 h-4 mr-2" />
+          )}
+          Salvar
+        </Button>
+      </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Identidade do Estudante</CardTitle>
+          <CardTitle>Identidade do Estudante (Sincronizado)</CardTitle>
+          <CardDescription>Seus dados principais são salvos no Supabase.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex items-center gap-4">
             <Avatar className="w-20 h-20">
-              <AvatarImage src={user.avatar} />
+              <AvatarImage src={avatarUrl || localUser.avatar} />
               <AvatarFallback className="bg-primary/10 text-primary text-2xl font-medium">
                 {initials ? initials : <UserIcon className="w-8 h-8" />}
               </AvatarFallback>
             </Avatar>
-            <Button variant="outline">Mudar Foto</Button>
+            <div className="flex-1 space-y-2 max-w-sm">
+              <Label>URL do Avatar</Label>
+              <Input
+                value={avatarUrl}
+                onChange={(e) => setAvatarUrl(e.target.value)}
+                placeholder="https://..."
+              />
+            </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Nome Completo</Label>
-              <Input value={user.name} onChange={(e) => updateUser({ name: e.target.value })} />
+              <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>Ano Escolar</Label>
+              <Label>Ano Escolar (Local)</Label>
               <Input
-                value={user.schoolYear}
+                value={localUser.schoolYear}
                 onChange={(e) => updateUser({ schoolYear: e.target.value })}
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Objetivo Principal (Vestibular)</Label>
-              <Input value={user.goal} onChange={(e) => updateUser({ goal: e.target.value })} />
             </div>
           </div>
         </CardContent>
@@ -60,7 +100,7 @@ export default function Profile() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Matérias de Maior Dificuldade</CardTitle>
+          <CardTitle>Matérias de Maior Dificuldade (Local)</CardTitle>
           <CardDescription>O Consultor IA usa isso para focar nas suas fraquezas.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -72,7 +112,7 @@ export default function Profile() {
               >
                 <Checkbox
                   id={`dif-${sub}`}
-                  checked={user.difficultSubjects.includes(sub)}
+                  checked={localUser.difficultSubjects.includes(sub)}
                   onCheckedChange={() => toggleDifficulty(sub)}
                 />
                 <Label htmlFor={`dif-${sub}`} className="text-sm font-medium cursor-pointer">
@@ -94,7 +134,7 @@ export default function Profile() {
               <Label>Horas de Estudo Semanais</Label>
               <Input
                 type="number"
-                value={user.weeklyStudyHours}
+                value={localUser.weeklyStudyHours}
                 onChange={(e) => updateUser({ weeklyStudyHours: Number(e.target.value) })}
               />
             </div>
@@ -102,7 +142,7 @@ export default function Profile() {
               <Label>Média Diária (horas)</Label>
               <Input
                 type="number"
-                value={user.dailyStudyTime}
+                value={localUser.dailyStudyTime}
                 onChange={(e) => updateUser({ dailyStudyTime: Number(e.target.value) })}
               />
             </div>

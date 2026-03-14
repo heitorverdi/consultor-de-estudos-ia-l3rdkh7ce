@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { PageTransition } from '@/components/PageTransition'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -8,25 +9,60 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import { RadialBarChart, RadialBar, PolarAngleAxis } from 'recharts'
 import { Link } from 'react-router-dom'
 import useAppStore from '@/stores/useAppStore'
-import { useState } from 'react'
+import { useAuth } from '@/hooks/use-auth'
+import { supabase } from '@/lib/supabase/client'
+import { toast } from 'sonner'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export function Dashboard() {
-  const { user, events, decks, tasks, setTasks } = useAppStore()
+  const { user: appUser, decks } = useAppStore()
+  const { user } = useAuth()
+  const [tasks, setTasks] = useState<any[]>([])
   const [newTask, setNewTask] = useState('')
+  const [loadingTasks, setLoadingTasks] = useState(true)
 
-  const prog = user.weeklyStudyHours > 0 ? (15 / user.weeklyStudyHours) * 100 : 0
+  const prog = appUser.weeklyStudyHours > 0 ? (15 / appUser.weeklyStudyHours) * 100 : 0
   const chartData = [{ name: 'Progresso', value: Math.min(prog, 100), fill: 'var(--color-value)' }]
   const chartConfig = { value: { label: 'Concluído', color: 'hsl(var(--primary))' } }
 
-  const currentSession = events.find((e) => e.type === 'study')
-  const toggleTask = (id: string) =>
-    setTasks(tasks.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)))
-  const addTask = () => {
-    if (newTask.trim()) {
-      setTasks([...tasks, { id: Date.now().toString(), title: newTask.trim(), completed: false }])
-      setNewTask('')
+  const fetchTasks = async () => {
+    if (!user) return
+    const { data } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(4)
+    if (data) setTasks(data)
+    setLoadingTasks(false)
+  }
+
+  useEffect(() => {
+    fetchTasks()
+  }, [user])
+
+  const toggleTask = async (task: any) => {
+    const newStatus = task.status === 'completed' ? 'pending' : 'completed'
+    const { error } = await supabase.from('tasks').update({ status: newStatus }).eq('id', task.id)
+    if (!error) setTasks(tasks.map((t) => (t.id === task.id ? { ...t, status: newStatus } : t)))
+  }
+
+  const addTask = async () => {
+    if (newTask.trim() && user) {
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert({ user_id: user.id, title: newTask.trim() })
+        .select()
+        .single()
+      if (!error && data) {
+        setTasks([data, ...tasks].slice(0, 4))
+        setNewTask('')
+        toast.success('Tarefa adicionada!')
+      }
     }
   }
+
+  const currentSession = tasks.find((t) => t.status !== 'completed')
 
   return (
     <PageTransition className="space-y-6">
@@ -42,24 +78,27 @@ export function Dashboard() {
             {currentSession ? (
               <>
                 <div>
-                  <h3 className="text-3xl font-display font-bold text-foreground">
+                  <h3 className="text-3xl font-display font-bold text-foreground truncate">
                     {currentSession.title}
                   </h3>
                   <p className="text-muted-foreground mt-1">
-                    {currentSession.start}:00 - {currentSession.end}:00 • {currentSession.subject}
+                    Prioridade: {currentSession.priority === 'high' ? 'Alta' : 'Normal'}
                   </p>
                 </div>
                 <div className="flex gap-3 pt-2">
-                  <Button size="lg" className="rounded-full font-bold shadow-lg shadow-primary/20">
-                    <PlayCircle className="w-5 h-5 mr-2" /> Iniciar Agora
-                  </Button>
+                  <Link to="/agenda">
+                    <Button
+                      size="lg"
+                      className="rounded-full font-bold shadow-lg shadow-primary/20"
+                    >
+                      <PlayCircle className="w-5 h-5 mr-2" /> Iniciar Tarefa
+                    </Button>
+                  </Link>
                 </div>
               </>
             ) : (
               <div className="py-4 space-y-4">
-                <p className="text-muted-foreground">
-                  Nenhuma sessão de estudo programada para agora.
-                </p>
+                <p className="text-muted-foreground">Nenhuma tarefa pendente programada.</p>
                 <Link to="/agenda">
                   <Button variant="outline" className="rounded-full bg-background/50 backdrop-blur">
                     Organizar Agenda
@@ -106,7 +145,7 @@ export function Dashboard() {
               </ChartContainer>
             </div>
             <p className="text-xs text-center text-muted-foreground mt-2">
-              Meta de {user.weeklyStudyHours}h semanais.
+              Meta de {appUser.weeklyStudyHours}h semanais.
             </p>
           </CardContent>
         </Card>
@@ -120,7 +159,7 @@ export function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {user.difficultSubjects.length === 0 ? (
+            {appUser.difficultSubjects.length === 0 ? (
               <div className="text-center py-4">
                 <p className="text-sm text-muted-foreground">Nenhuma dificuldade mapeada.</p>
                 <Link
@@ -131,7 +170,7 @@ export function Dashboard() {
                 </Link>
               </div>
             ) : (
-              user.difficultSubjects.map((sub) => (
+              appUser.difficultSubjects.map((sub) => (
                 <div key={sub} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className={`w-2 h-2 rounded-full bg-red-500`} />
@@ -148,88 +187,54 @@ export function Dashboard() {
 
         <Card className="hover-card-effect">
           <CardHeader>
-            <CardTitle className="text-lg">Flashcards Pendentes</CardTitle>
+            <CardTitle className="text-lg">Tarefas Rápidas</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {decks.length === 0 ? (
-              <div className="text-center py-4">
-                <p className="text-sm text-muted-foreground">Nenhum deck criado.</p>
-                <Link
-                  to="/flashcards"
-                  className="text-xs text-primary hover:underline mt-2 inline-block"
-                >
-                  Criar Flashcards
-                </Link>
+          <CardContent>
+            <div className="mb-4 flex gap-2">
+              <Input
+                placeholder="Nova tarefa..."
+                value={newTask}
+                onChange={(e) => setNewTask(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addTask()}
+              />
+              <Button size="icon" onClick={addTask}>
+                <PlusCircle className="w-4 h-4" />
+              </Button>
+            </div>
+            {loadingTasks ? (
+              <div className="space-y-2">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
               </div>
+            ) : tasks.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Sincronizado. Nenhuma tarefa no momento.
+              </p>
             ) : (
-              decks.slice(0, 3).map((deck) => (
-                <div
-                  key={deck.id}
-                  className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-secondary/30"
-                >
-                  <div>
-                    <p className="font-medium text-sm">{deck.title}</p>
-                    <p className="text-xs text-muted-foreground">{deck.subject}</p>
+              <div className="grid grid-cols-1 gap-2">
+                {tasks.map((task) => (
+                  <div
+                    key={task.id}
+                    onClick={() => toggleTask(task)}
+                    className="flex items-center gap-3 p-3 rounded-lg border hover:bg-secondary/50 cursor-pointer group transition-colors"
+                  >
+                    {task.status === 'completed' ? (
+                      <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
+                    ) : (
+                      <Circle className="w-5 h-5 text-muted-foreground group-hover:text-primary shrink-0" />
+                    )}
+                    <span
+                      className={`text-sm truncate ${task.status === 'completed' ? 'line-through text-muted-foreground' : 'font-medium'}`}
+                    >
+                      {task.title}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Badge variant="default">{deck.cards.length} cards</Badge>
-                    <Link to="/flashcards">
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                        <PlayCircle className="w-4 h-4" />
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              ))
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>
       </div>
-
-      <Card className="hover-card-effect">
-        <CardHeader>
-          <CardTitle className="text-lg">Tarefas Rápidas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-4 flex gap-2">
-            <Input
-              placeholder="Adicionar nova tarefa..."
-              value={newTask}
-              onChange={(e) => setNewTask(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && addTask()}
-            />
-            <Button size="icon" onClick={addTask}>
-              <PlusCircle className="w-4 h-4" />
-            </Button>
-          </div>
-          {tasks.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Nenhuma tarefa no momento.
-            </p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {tasks.map((task) => (
-                <div
-                  key={task.id}
-                  onClick={() => toggleTask(task.id)}
-                  className="flex items-center gap-3 p-3 rounded-lg border hover:bg-secondary/50 cursor-pointer group"
-                >
-                  {task.completed ? (
-                    <CheckCircle2 className="w-5 h-5 text-primary" />
-                  ) : (
-                    <Circle className="w-5 h-5 text-muted-foreground group-hover:text-primary" />
-                  )}
-                  <span
-                    className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : 'font-medium'}`}
-                  >
-                    {task.title}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </PageTransition>
   )
 }
